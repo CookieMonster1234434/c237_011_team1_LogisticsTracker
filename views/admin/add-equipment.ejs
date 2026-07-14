@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = 'Add Equipment'
+      user      = current session user (role: admin)
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <h2 class="mb-4">Add Equipment</h2>
+        <%- include('../partials/alert') %>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <%# Expected action: POST /admin/equipment/add (multipart/form-data for image upload) %>
+                <form action="/admin/equipment/add" method="POST" enctype="multipart/form-data">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="category" class="form-label">Category</label>
+                            <input type="text" class="form-control" id="category" name="category" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="total_quantity" class="form-label">Total Quantity</label>
+                            <input type="number" class="form-control" id="total_quantity" name="total_quantity" min="1" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="condition" class="form-label">Condition</label>
+                            <select class="form-select" id="condition" name="condition" required>
+                                <option value="New">New</option>
+                                <option value="Good">Good</option>
+                                <option value="Fair">Fair</option>
+                                <option value="Worn">Worn</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="image" class="form-label">Image</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                        </div>
+                    </div>
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Add Equipment</button>
+                        <a href="/equipment" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

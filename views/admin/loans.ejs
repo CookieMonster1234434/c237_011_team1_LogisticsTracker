@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = 'All Loans'
+      user      = current session user (role: admin)
+      loans     = [{ loan_id, username, name, borrow_date, due_date, return_date, status }, ...]
+                   status is one of 'borrowed' | 'returned' | 'overdue'
+      overdueCount = number of loans currently overdue (for the summary stat)
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">All Loans</h2>
+            <span class="badge bg-danger fs-6">
+                <%= typeof overdueCount !== 'undefined' ? overdueCount : 0 %> overdue
+            </span>
+        </div>
+        <%- include('../partials/alert') %>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle bg-white">
+                <thead class="table-light">
+                    <tr>
+                        <th>Student</th>
+                        <th>Equipment</th>
+                        <th>Borrow Date</th>
+                        <th>Due Date</th>
+                        <th>Return Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (typeof loans !== 'undefined' && loans.length > 0) { %>
+                        <% loans.forEach(function(loan) { %>
+                            <tr class="<%= loan.status === 'overdue' ? 'table-row-overdue' : '' %>">
+                                <td><%= loan.username %></td>
+                                <td><%= loan.name %></td>
+                                <td><%= loan.borrow_date %></td>
+                                <td><%= loan.due_date %></td>
+                                <td><%= loan.return_date ? loan.return_date : '—' %></td>
+                                <td>
+                                    <span class="badge status-badge-<%= loan.status %>"><%= loan.status %></span>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No loans recorded yet.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

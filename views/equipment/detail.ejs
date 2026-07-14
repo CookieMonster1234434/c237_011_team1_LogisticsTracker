@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = equipment.name
+      user      = current session user or null
+      equipment = { equipment_id, name, category, description, image, total_quantity, available_quantity, condition }
+      hasOverdueLoan = boolean (true if the logged-in student already has an overdue loan; blocks borrowing)
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <a href="/equipment" class="btn btn-link ps-0 mb-3"><i class="bi bi-arrow-left"></i> Back to Equipment</a>
+        <%- include('../partials/alert') %>
+        <div class="row g-4">
+            <div class="col-md-5">
+                <img src="<%= equipment.image ? '/uploads/' + equipment.image : '/images/placeholder.svg' %>"
+                     class="img-fluid rounded shadow-sm" alt="<%= equipment.name %>">
+            </div>
+            <div class="col-md-7">
+                <span class="badge bg-secondary mb-2"><%= equipment.category %></span>
+                <h2><%= equipment.name %></h2>
+                <p class="text-muted"><%= equipment.description %></p>
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Available</span>
+                        <strong><%= equipment.available_quantity %> / <%= equipment.total_quantity %></strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Condition</span>
+                        <strong><%= equipment.condition %></strong>
+                    </li>
+                </ul>
+
+                <% if (typeof user !== 'undefined' && user && user.role === 'student') { %>
+                    <% if (typeof hasOverdueLoan !== 'undefined' && hasOverdueLoan) { %>
+                        <div class="alert alert-warning">
+                            You have an overdue item. Return it before borrowing more equipment.
+                        </div>
+                    <% } else if (equipment.available_quantity > 0) { %>
+                        <%# Expected action: POST /equipment/:id/borrow %>
+                        <form action="/equipment/<%= equipment.equipment_id %>/borrow" method="POST">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-box-arrow-in-down"></i> Borrow this item
+                            </button>
+                        </form>
+                    <% } else { %>
+                        <button class="btn btn-secondary btn-lg" disabled>Currently Unavailable</button>
+                    <% } %>
+                <% } else if (typeof user === 'undefined' || !user) { %>
+                    <a href="/login" class="btn btn-outline-primary">Login to borrow</a>
+                <% } %>
+
+                <% if (typeof user !== 'undefined' && user && user.role === 'admin') { %>
+                    <div class="mt-3 d-flex gap-2">
+                        <a href="/admin/equipment/<%= equipment.equipment_id %>/edit" class="btn btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <form action="/admin/equipment/<%= equipment.equipment_id %>/delete" method="POST"
+                              onsubmit="return confirm('Delete this equipment?');">
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </form>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>
