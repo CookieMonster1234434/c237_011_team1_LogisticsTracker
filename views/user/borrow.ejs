@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = 'Borrow Equipment'
+      user      = current session user
+      equipment = { equipment_id, name, category, description, image, total_quantity, available_quantity, condition }
+      hasOverdueLoan = boolean
+      error/success = optional strings
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container py-4">
+        <% if (typeof equipment !== 'undefined' && equipment) { %>
+            <a href="/equipment/<%= equipment.equipment_id %>" class="btn btn-link ps-0 mb-3">
+                <i class="bi bi-arrow-left"></i> Back to equipment
+            </a>
+        <% } %>
+        <%- include('../partials/alert') %>
+
+        <% if (typeof equipment !== 'undefined' && equipment) { %>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h4"><%= equipment.name %></h2>
+                    <p class="text-muted mb-3"><%= equipment.description %></p>
+                    <p class="mb-1"><strong>Available:</strong> <%= equipment.available_quantity %> / <%= equipment.total_quantity %></p>
+                    <p class="mb-3"><strong>Condition:</strong> <%= equipment.condition %></p>
+
+                    <% if (typeof hasOverdueLoan !== 'undefined' && hasOverdueLoan) { %>
+                        <div class="alert alert-warning">You already have an overdue item. Return it before borrowing more.</div>
+                    <% } else if (equipment.available_quantity > 0) { %>
+                        <form action="/equipment/<%= equipment.equipment_id %>/borrow" method="POST">
+                            <div class="mb-3">
+                                <label for="durationDays" class="form-label">Loan duration</label>
+                                <select class="form-select" id="durationDays" name="durationDays">
+                                    <option value="3">3 days</option>
+                                    <option value="7" selected>7 days</option>
+                                    <option value="14">14 days</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Student</label>
+                                <input type="text" class="form-control" value="<%= typeof user !== 'undefined' && user ? user.username : 'Student' %>" disabled>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-box-arrow-in-down"></i> Confirm borrow
+                            </button>
+                        </form>
+                    <% } else { %>
+                        <div class="alert alert-secondary">This item is currently unavailable.</div>
+                    <% } %>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="alert alert-secondary">No equipment selected.</div>
+        <% } %>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

@@ -27,12 +27,27 @@ const mockEquipmentList = [
 ];
 
 const mockLoans = [
-    { loan_id: 1, equipment_id: 1, name: 'Canon EOS 200D', borrow_date: '2026-07-01', due_date: '2026-07-08', return_date: null, status: 'overdue' },
-    { loan_id: 2, equipment_id: 3, name: 'Tripod Stand', borrow_date: '2026-07-10', due_date: '2026-07-17', return_date: null, status: 'borrowed' },
-    { loan_id: 3, equipment_id: 4, name: 'Rode Wireless Mic', borrow_date: '2026-06-20', due_date: '2026-06-27', return_date: '2026-06-25', status: 'returned' }
+    { loan_id: 1, user_id: 1, equipment_id: 1, name: 'Canon EOS 200D', borrow_date: '2026-07-01', due_date: '2026-07-08', return_date: null, status: 'overdue' },
+    { loan_id: 2, user_id: 1, equipment_id: 3, name: 'Tripod Stand', borrow_date: '2026-07-10', due_date: '2026-07-17', return_date: null, status: 'borrowed' },
+    { loan_id: 3, user_id: 1, equipment_id: 4, name: 'Rode Wireless Mic', borrow_date: '2026-06-20', due_date: '2026-06-27', return_date: '2026-06-25', status: 'returned' }
 ];
 
-const mockAllLoans = mockLoans.map(l => ({ ...l, username: 'alice_tan' }));
+function getStudentLoans() {
+    return mockLoans.filter(loan => loan.user_id === mockStudent.user_id);
+}
+
+function getAllLoans() {
+    return mockLoans.map(l => ({ ...l, username: mockStudent.username }));
+}
+
+function getEquipment(id) {
+    const equipmentId = Number(id);
+    return mockEquipmentList.find(e => e.equipment_id === equipmentId) || null;
+}
+
+function formatDate(date) {
+    return date.toISOString().slice(0, 10);
+}
 
 app.get('/', (req, res) => res.redirect('/equipment'));
 
@@ -60,20 +75,93 @@ app.get('/equipment', (req, res) => {
 });
 
 app.get('/equipment/:id', (req, res) => {
-    const equipment = mockEquipmentList.find(e => e.equipment_id === Number(req.params.id)) || mockEquipmentList[0];
+    const equipment = getEquipment(req.params.id);
+    if (!equipment) {
+        return res.redirect('/equipment');
+    }
+
     res.render('equipment/detail', {
         pageTitle: equipment.name,
         user: mockStudent,
         equipment,
-        hasOverdueLoan: mockLoans.some(l => l.status === 'overdue')
+        hasOverdueLoan: getStudentLoans().some(l => l.status === 'overdue')
     });
+});
+
+app.get('/equipment/:id/borrow', (req, res) => {
+    const equipment = getEquipment(req.params.id);
+    if (!equipment) {
+        return res.redirect('/equipment');
+    }
+
+    res.render('user/borrow', {
+        pageTitle: 'Borrow Equipment',
+        user: mockStudent,
+        equipment,
+        hasOverdueLoan: getStudentLoans().some(l => l.status === 'overdue'),
+        error: req.query.error,
+        success: req.query.success
+    });
+});
+
+app.post('/equipment/:id/borrow', (req, res) => {
+    const equipment = getEquipment(req.params.id);
+    if (!equipment) {
+        return res.redirect('/equipment');
+    }
+
+    const studentLoans = getStudentLoans();
+    if (studentLoans.some(l => l.status === 'overdue')) {
+        return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=Return%20your%20overdue%20item%20before%20borrowing%20more.`);
+    }
+
+    if (equipment.available_quantity <= 0) {
+        return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=Sorry,%20this%20item%20is%20currently%20unavailable.`);
+    }
+
+    const days = Math.max(1, Math.min(30, Number(req.body.durationDays || 7)) || 7);
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + days);
+
+    mockLoans.push({
+        loan_id: mockLoans.length + 1,
+        user_id: mockStudent.user_id,
+        equipment_id: equipment.equipment_id,
+        name: equipment.name,
+        borrow_date: formatDate(new Date()),
+        due_date: formatDate(dueDate),
+        return_date: null,
+        status: 'borrowed'
+    });
+
+    equipment.available_quantity = Math.max(0, equipment.available_quantity - 1);
+    return res.redirect('/myloans?success=Equipment%20borrowed%20successfully.');
+});
+
+app.post('/myloans/:id/return', (req, res) => {
+    const loan = mockLoans.find(item => item.loan_id === Number(req.params.id));
+    if (!loan) {
+        return res.redirect('/myloans?error=Loan%20not%20found.');
+    }
+
+    loan.return_date = formatDate(new Date());
+    loan.status = 'returned';
+
+    const equipment = getEquipment(loan.equipment_id);
+    if (equipment) {
+        equipment.available_quantity = Math.min(equipment.total_quantity, equipment.available_quantity + 1);
+    }
+
+    return res.redirect('/myloans?success=Equipment%20returned%20successfully.');
 });
 
 app.get('/myloans', (req, res) => {
     res.render('loans/my-loans', {
         pageTitle: 'My Loans',
         user: mockStudent,
-        loans: mockLoans
+        loans: getStudentLoans(),
+        error: req.query.error,
+        success: req.query.success
     });
 });
 
@@ -87,11 +175,12 @@ app.get('/admin/equipment/:id/edit', (req, res) => {
 });
 
 app.get('/admin/loans', (req, res) => {
+    const allLoans = getAllLoans();
     res.render('admin/loans', {
         pageTitle: 'All Loans',
         user: mockAdmin,
-        loans: mockAllLoans,
-        overdueCount: mockAllLoans.filter(l => l.status === 'overdue').length
+        loans: allLoans,
+        overdueCount: allLoans.filter(l => l.status === 'overdue').length
     });
 });
 
