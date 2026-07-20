@@ -96,8 +96,7 @@ app.get('/equipment/:id/borrow', (req, res) => {
 
     res.render('user/borrow', {
         pageTitle: 'Borrow Equipment',
-        user: mockStudent,
-        equipment,
+        user: mockStudent,equipment,
         hasOverdueLoan: getStudentLoans().some(l => l.status === 'overdue'),
         error: req.query.error,
         success: req.query.success
@@ -106,23 +105,22 @@ app.get('/equipment/:id/borrow', (req, res) => {
 
 app.post('/equipment/:id/borrow', (req, res) => {
     const equipment = getEquipment(req.params.id);
-    if (!equipment) {
-        return res.redirect('/equipment');
-    }
+    if (!equipment) return res.redirect('/equipment');
 
-    const studentLoans = getStudentLoans();
-    if (studentLoans.some(l => l.status === 'overdue')) {
-        return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=Return%20your%20overdue%20item%20before%20borrowing%20more.`);
-    }
+    // 1. Guard Clauses (Consolidated Validation)
+    const err = getStudentLoans().some(l => l.status === 'overdue') ? 'overdue'
+    : equipment.available_quantity <= 0 ? 'unavailable'
+    : null;
 
-    if (equipment.available_quantity <= 0) {
-        return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=Sorry,%20this%20item%20is%20currently%20unavailable.`);
-    }
+// The redirect line becomes beautifully short:
+if (err) return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=${err}`);
 
-    const days = Math.max(1, Math.min(30, Number(req.body.durationDays || 7)) || 7);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + days);
+    // 2. Compact Duration & Date Math
+    const parsed = Number(req.body.durationDays);
+    const days = (req.body.durationDays && Number.isFinite(parsed)) ? Math.min(30, Math.max(1, parsed)) : 7;
+    const dueDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
+    // 3. Update State & Redirect
     mockLoans.push({
         loan_id: mockLoans.length + 1,
         user_id: mockStudent.user_id,
@@ -134,7 +132,7 @@ app.post('/equipment/:id/borrow', (req, res) => {
         status: 'borrowed'
     });
 
-    equipment.available_quantity = Math.max(0, equipment.available_quantity - 1);
+    equipment.available_quantity--;
     return res.redirect('/myloans?success=Equipment%20borrowed%20successfully.');
 });
 
