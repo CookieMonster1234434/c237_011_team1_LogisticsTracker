@@ -107,14 +107,15 @@ app.post('/equipment/:id/borrow', (req, res) => {
     const equipment = getEquipment(req.params.id);
     if (!equipment) return res.redirect('/equipment');
 
-    // 1. Guard Clauses (Consolidated Validation)
-    const err = getStudentLoans().some(l => l.status === 'overdue') ? 'overdue'
-    : equipment.available_quantity <= 0 ? 'unavailable'
-    : null;
+ // 1. Check for overdue items first
+if (getStudentLoans().some(l => l.status === 'overdue')) {
+    return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=overdue`);
+} 
 
-// The redirect line becomes beautifully short:
-if (err) return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=${err}`);
-
+// 2. Check stock levels second
+else if (equipment.available_quantity <= 0) {
+    return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=unavailable`);
+}
     // 2. Compact Duration & Date Math
     const parsed = Number(req.body.durationDays);
     const days = (req.body.durationDays && Number.isFinite(parsed)) ? Math.min(30, Math.max(1, parsed)) : 7;
