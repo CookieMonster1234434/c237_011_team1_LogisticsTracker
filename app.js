@@ -397,144 +397,6 @@ app.get('/myloans', checkAuthenticated, (req, res) => {
     });
 });
 
-// A student can view their own ticket requests
-app.get('/tickets/my-tickets', checkAuthenticated, (req, res) => {
-    const userId = req.session.user.user_id;
-
-    const sql = `SELECT tickets.ticket_id, tickets.status, tickets.request_date, tickets.due_date,
-                        tickets.duration_days, tickets.reason, tickets.review_note,
-                        equipment.name AS equipment_name
-                 FROM tickets
-                 JOIN equipment ON tickets.equipment_id = equipment.equipment_id
-                 WHERE tickets.user_id = ?
-                 ORDER BY tickets.request_date DESC`;
-
-    db.query(sql, [userId], (error, results) => {
-        if (error) {
-            console.error('Database query error:', error.message);
-            return res.send('Error retrieving tickets');
-        }
-
-        res.render('tickets/my-tickets', {
-            pageTitle: 'My Tickets',
-            user: req.session.user,
-            tickets: results,
-            error: req.flash('error')[0],
-            success: req.flash('success')[0]
-        });
-    });
-});
-
-// Admin can manage all ticket requests
-app.get('/admin/tickets', checkAuthenticated, checkAdmin, (req, res) => {
-    const sql = `SELECT tickets.ticket_id, tickets.status, tickets.request_date, tickets.due_date,
-                        tickets.duration_days, tickets.reason, tickets.review_note,
-                        users.username, equipment.name AS equipment_name
-                 FROM tickets
-                 JOIN users ON tickets.user_id = users.user_id
-                 JOIN equipment ON tickets.equipment_id = equipment.equipment_id
-                 ORDER BY tickets.request_date DESC`;
-
-    db.query(sql, (error, results) => {
-        if (error) {
-            console.error('Database query error:', error.message);
-            return res.send('Error retrieving tickets');
-        }
-
-        res.render('tickets/admin-tickets', {
-            pageTitle: 'Ticket Requests',
-            user: req.session.user,
-            tickets: results,
-            error: req.flash('error')[0],
-            success: req.flash('success')[0]
-        });
-    });
-});
-
-app.post('/admin/tickets/:id/approve', checkAuthenticated, checkAdmin, (req, res) => {
-    const ticketId = req.params.id;
-    const ticketSql = 'SELECT * FROM tickets WHERE ticket_id = ?';
-
-    db.query(ticketSql, [ticketId], (error, ticketResults) => {
-        if (error) {
-            console.error('Database query error:', error.message);
-            return res.send('Error retrieving ticket');
-        }
-
-        if (ticketResults.length === 0) {
-            req.flash('error', 'Ticket not found.');
-            return res.redirect('/admin/tickets');
-        }
-
-        const ticket = ticketResults[0];
-        if (ticket.status !== 'pending') {
-            req.flash('error', 'This ticket was already handled.');
-            return res.redirect('/admin/tickets');
-        }
-
-        const stockSql = 'SELECT available_quantity FROM equipment WHERE equipment_id = ?';
-        db.query(stockSql, [ticket.equipment_id], (error, stockResults) => {
-            if (error) {
-                console.error('Database query error:', error.message);
-                return res.send('Error checking stock');
-            }
-
-            if (stockResults.length === 0) {
-                req.flash('error', 'Equipment no longer exists.');
-                return res.redirect('/admin/tickets');
-            }
-
-            if (stockResults[0].available_quantity <= 0) {
-                req.flash('error', 'This item is currently out of stock.');
-                return res.redirect('/admin/tickets');
-            }
-
-            const updateTicketSql = `UPDATE tickets SET status = 'approved', review_note = ? WHERE ticket_id = ?`;
-            db.query(updateTicketSql, ['Approved by admin', ticketId], (error) => {
-                if (error) {
-                    console.error('Error updating ticket:', error.message);
-                    return res.send('Error updating ticket');
-                }
-
-                const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
-                                 VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), 'borrowed')`;
-                db.query(loanSql, [ticket.user_id, ticket.equipment_id, ticket.duration_days], (error) => {
-                    if (error) {
-                        console.error('Error creating loan:', error.message);
-                        return res.send('Error creating loan');
-                    }
-
-                    const updateStockSql = `UPDATE equipment SET available_quantity = available_quantity - 1 WHERE equipment_id = ?`;
-                    db.query(updateStockSql, [ticket.equipment_id], (error) => {
-                        if (error) {
-                            console.error('Error updating stock:', error.message);
-                            return res.send('Error updating stock');
-                        }
-
-                        req.flash('success', 'Ticket approved and loan created.');
-                        res.redirect('/admin/tickets');
-                    });
-                });
-            });
-        });
-    });
-});
-
-app.post('/admin/tickets/:id/reject', checkAuthenticated, checkAdmin, (req, res) => {
-    const ticketId = req.params.id;
-    const note = req.body.reviewNote || 'No reason provided';
-
-    const sql = `UPDATE tickets SET status = 'rejected', review_note = ? WHERE ticket_id = ?`;
-    db.query(sql, [note, ticketId], (error) => {
-        if (error) {
-            console.error('Error updating ticket:', error.message);
-            return res.send('Error updating ticket');
-        }
-
-        req.flash('success', 'Ticket rejected.');
-        res.redirect('/admin/tickets');
-    });
-});
 
 // Admin views every loan in the system
 app.get('/admin/loans', checkAuthenticated, checkAdmin, (req, res) => {
@@ -718,6 +580,144 @@ app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
     });
 });
 
+// A student can view their own ticket requests
+app.get('/tickets/my-tickets', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.user_id;
+
+    const sql = `SELECT tickets.ticket_id, tickets.status, tickets.request_date, tickets.due_date,
+                        tickets.duration_days, tickets.reason, tickets.review_note,
+                        equipment.name AS equipment_name
+                 FROM tickets
+                 JOIN equipment ON tickets.equipment_id = equipment.equipment_id
+                 WHERE tickets.user_id = ?
+                 ORDER BY tickets.request_date DESC`;
+
+    db.query(sql, [userId], (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving tickets');
+        }
+
+        res.render('tickets/my-tickets', {
+            pageTitle: 'My Tickets',
+            user: req.session.user,
+            tickets: results,
+            error: req.flash('error')[0],
+            success: req.flash('success')[0]
+        });
+    });
+});
+
+// Admin can manage all ticket requests
+app.get('/admin/tickets', checkAuthenticated, checkAdmin, (req, res) => {
+    const sql = `SELECT tickets.ticket_id, tickets.status, tickets.request_date, tickets.due_date,
+                        tickets.duration_days, tickets.reason, tickets.review_note,
+                        users.username, equipment.name AS equipment_name
+                 FROM tickets
+                 JOIN users ON tickets.user_id = users.user_id
+                 JOIN equipment ON tickets.equipment_id = equipment.equipment_id
+                 ORDER BY tickets.request_date DESC`;
+
+    db.query(sql, (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving tickets');
+        }
+
+        res.render('tickets/admin-tickets', {
+            pageTitle: 'Ticket Requests',
+            user: req.session.user,
+            tickets: results,
+            error: req.flash('error')[0],
+            success: req.flash('success')[0]
+        });
+    });
+});
+
+app.post('/admin/tickets/:id/approve', checkAuthenticated, checkAdmin, (req, res) => {
+    const ticketId = req.params.id;
+    const ticketSql = 'SELECT * FROM tickets WHERE ticket_id = ?';
+
+    db.query(ticketSql, [ticketId], (error, ticketResults) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving ticket');
+        }
+
+        if (ticketResults.length === 0) {
+            req.flash('error', 'Ticket not found.');
+            return res.redirect('/admin/tickets');
+        }
+
+        const ticket = ticketResults[0];
+        if (ticket.status !== 'pending') {
+            req.flash('error', 'This ticket was already handled.');
+            return res.redirect('/admin/tickets');
+        }
+
+        const stockSql = 'SELECT available_quantity FROM equipment WHERE equipment_id = ?';
+        db.query(stockSql, [ticket.equipment_id], (error, stockResults) => {
+            if (error) {
+                console.error('Database query error:', error.message);
+                return res.send('Error checking stock');
+            }
+
+            if (stockResults.length === 0) {
+                req.flash('error', 'Equipment no longer exists.');
+                return res.redirect('/admin/tickets');
+            }
+
+            if (stockResults[0].available_quantity <= 0) {
+                req.flash('error', 'This item is currently out of stock.');
+                return res.redirect('/admin/tickets');
+            }
+
+            const updateTicketSql = `UPDATE tickets SET status = 'approved', review_note = ? WHERE ticket_id = ?`;
+            db.query(updateTicketSql, ['Approved by admin', ticketId], (error) => {
+                if (error) {
+                    console.error('Error updating ticket:', error.message);
+                    return res.send('Error updating ticket');
+                }
+
+                const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
+                                 VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), 'borrowed')`;
+                db.query(loanSql, [ticket.user_id, ticket.equipment_id, ticket.duration_days], (error) => {
+                    if (error) {
+                        console.error('Error creating loan:', error.message);
+                        return res.send('Error creating loan');
+                    }
+
+                    const updateStockSql = `UPDATE equipment SET available_quantity = available_quantity - 1 WHERE equipment_id = ?`;
+                    db.query(updateStockSql, [ticket.equipment_id], (error) => {
+                        if (error) {
+                            console.error('Error updating stock:', error.message);
+                            return res.send('Error updating stock');
+                        }
+
+                        req.flash('success', 'Ticket approved and loan created.');
+                        res.redirect('/admin/tickets');
+                    });
+                });
+            });
+        });
+    });
+});
+
+app.post('/admin/tickets/:id/reject', checkAuthenticated, checkAdmin, (req, res) => {
+    const ticketId = req.params.id;
+    const note = req.body.reviewNote || 'No reason provided';
+
+    const sql = `UPDATE tickets SET status = 'rejected', review_note = ? WHERE ticket_id = ?`;
+    db.query(sql, [note, ticketId], (error) => {
+        if (error) {
+            console.error('Error updating ticket:', error.message);
+            return res.send('Error updating ticket');
+        }
+
+        req.flash('success', 'Ticket rejected.');
+        res.redirect('/admin/tickets');
+    });
+});
 
 // =====================================================================
 // SHAKIR - Updating / Editing information
@@ -1105,7 +1105,25 @@ app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, (req, res) =
 // =====================================================================
 // START THE SERVER
 // =====================================================================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-});
+const START_PORT = Number(process.env.PORT) || 3000;
+const MAX_PORT_RETRIES = 10;
+
+function startServer(port, attempt = 1) {
+    const server = app.listen(port, () => {
+        console.log(`Server running at http://localhost:${port}`);
+    });
+
+    server.on('error', (error) => {
+        if (error.code === 'EADDRINUSE' && attempt <= MAX_PORT_RETRIES) {
+            const nextPort = port + 1;
+            console.warn(`Port ${port} is busy. Retrying on port ${nextPort}...`);
+            startServer(nextPort, attempt + 1);
+            return;
+        }
+
+        console.error('Failed to start server:', error.message);
+        process.exit(1);
+    });
+}
+
+startServer(START_PORT);
