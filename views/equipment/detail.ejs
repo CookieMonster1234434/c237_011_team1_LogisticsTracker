@@ -41,12 +41,10 @@
                             You have an overdue item. Return it before borrowing more equipment.
                         </div>
                     <% } else if (equipment.available_quantity > 0) { %>
-                        <%# Expected action: POST /equipment/:id/borrow %>
-                        <form action="/equipment/<%= equipment.equipment_id %>/borrow" method="POST">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="bi bi-box-arrow-in-down"></i> Borrow this item
-                            </button>
-                        </form>
+                        <p class="text-muted small">Create a borrow request and wait for admin approval.</p>
+                        <a href="/equipment/<%= equipment.equipment_id %>/borrow" class="btn btn-primary btn-lg">
+                            <i class="bi bi-box-arrow-in-down"></i> Request to Borrow
+                        </a>
                     <% } else { %>
                         <button class="btn btn-secondary btn-lg" disabled>Currently Unavailable</button>
                     <% } %>

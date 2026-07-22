@@ -58,6 +58,24 @@ CREATE TABLE loans (
     FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
 );
 
+-- ---------------------------------------------------------------------
+-- TABLE: tickets
+-- Simple borrow approval workflow: pending -> approved/rejected
+-- ---------------------------------------------------------------------
+CREATE TABLE tickets (
+    ticket_id      INT AUTO_INCREMENT PRIMARY KEY,
+    user_id        INT NOT NULL,
+    equipment_id   INT NOT NULL,
+    request_date   DATE NOT NULL,
+    due_date       DATE NOT NULL,
+    duration_days  INT NOT NULL DEFAULT 7,
+    reason         VARCHAR(255) DEFAULT NULL,
+    status         VARCHAR(20) NOT NULL DEFAULT 'pending',
+    review_note    VARCHAR(255) DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+);
+
 
 -- ---------------------------------------------------------------------
 -- SAMPLE USERS

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <a href="/equipment/<%= equipment.equipment_id %>" class="btn btn-link ps-0 mb-3">Back</a>
+        <%- include('../partials/alert') %>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="mb-3">Request to Borrow <%= equipment.name %></h2>
+                <p class="text-muted">Your request will be reviewed by the admin before the loan is approved.</p>
+
+                <% if (typeof hasOverdueLoan !== 'undefined' && hasOverdueLoan) { %>
+                    <div class="alert alert-warning">You already have an overdue item. Return it first before making another request.</div>
+                <% } else { %>
+                    <form action="/equipment/<%= equipment.equipment_id %>/borrow" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Reason for borrowing</label>
+                            <textarea name="reason" class="form-control" rows="3" placeholder="Why do you need this equipment?"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">How many days?</label>
+                            <input type="number" name="durationDays" class="form-control" min="1" max="30" value="7">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Request</button>
+                    </form>
+                <% } %>
+            </div>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

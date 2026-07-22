@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0">My Borrow Tickets</h2>
+            <a href="/equipment" class="btn btn-outline-primary">Browse Equipment</a>
+        </div>
+
+        <%- include('../partials/alert') %>
+
+        <% if (tickets && tickets.length > 0) { %>
+            <div class="row g-3">
+                <% for (let i = 0; i < tickets.length; i++) { %>
+                    <% const ticket = tickets[i]; %>
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h5 class="card-title mb-1"><%= ticket.equipment_name %></h5>
+                                        <p class="text-muted mb-2">Requested on <%= ticket.request_date %></p>
+                                    </div>
+                                    <span class="badge bg-info text-dark"><%= ticket.status %></span>
+                                </div>
+                                <p class="mb-2"><strong>Reason:</strong> <%= ticket.reason %></p>
+                                <p class="mb-2"><strong>Due date:</strong> <%= ticket.due_date %></p>
+                                <p class="mb-0"><strong>Review note:</strong> <%= ticket.review_note || 'Waiting for admin review.' %></p>
+                            </div>
+                        </div>
+                    </div>
+                <% } %>
+            </div>
+        <% } else { %>
+            <div class="alert alert-light border">You have not made any borrow requests yet.</div>
+        <% } %>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

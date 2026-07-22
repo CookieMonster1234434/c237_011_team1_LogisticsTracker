@@ -38,7 +38,28 @@ db.connect((err) => {
         console.error('Error connecting to MySQL:', err);
         return;
     }
-    console.log('Connected to MySQL database');
+
+    const createTicketsTableSql = `CREATE TABLE IF NOT EXISTS tickets (
+        ticket_id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        equipment_id INT NOT NULL,
+        request_date DATE NOT NULL,
+        due_date DATE NOT NULL,
+        duration_days INT NOT NULL DEFAULT 7,
+        reason VARCHAR(255) DEFAULT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        review_note VARCHAR(255) DEFAULT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(user_id),
+        FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
+    )`;
+
+    db.query(createTicketsTableSql, (tableError) => {
+        if (tableError) {
+            console.error('Error creating tickets table:', tableError.message);
+            return;
+        }
+        console.log('Connected to MySQL database');
+    });
 });
 
 
@@ -376,6 +397,145 @@ app.get('/myloans', checkAuthenticated, (req, res) => {
     });
 });
 
+// A student can view their own ticket requests
+app.get('/tickets/my-tickets', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.user_id;
+
+    const sql = `SELECT tickets.ticket_id, tickets.status, tickets.request_date, tickets.due_date,
+                        tickets.duration_days, tickets.reason, tickets.review_note,
+                        equipment.name AS equipment_name
+                 FROM tickets
+                 JOIN equipment ON tickets.equipment_id = equipment.equipment_id
+                 WHERE tickets.user_id = ?
+                 ORDER BY tickets.request_date DESC`;
+
+    db.query(sql, [userId], (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving tickets');
+        }
+
+        res.render('tickets/my-tickets', {
+            pageTitle: 'My Tickets',
+            user: req.session.user,
+            tickets: results,
+            error: req.flash('error')[0],
+            success: req.flash('success')[0]
+        });
+    });
+});
+
+// Admin can manage all ticket requests
+app.get('/admin/tickets', checkAuthenticated, checkAdmin, (req, res) => {
+    const sql = `SELECT tickets.ticket_id, tickets.status, tickets.request_date, tickets.due_date,
+                        tickets.duration_days, tickets.reason, tickets.review_note,
+                        users.username, equipment.name AS equipment_name
+                 FROM tickets
+                 JOIN users ON tickets.user_id = users.user_id
+                 JOIN equipment ON tickets.equipment_id = equipment.equipment_id
+                 ORDER BY tickets.request_date DESC`;
+
+    db.query(sql, (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving tickets');
+        }
+
+        res.render('tickets/admin-tickets', {
+            pageTitle: 'Ticket Requests',
+            user: req.session.user,
+            tickets: results,
+            error: req.flash('error')[0],
+            success: req.flash('success')[0]
+        });
+    });
+});
+
+app.post('/admin/tickets/:id/approve', checkAuthenticated, checkAdmin, (req, res) => {
+    const ticketId = req.params.id;
+    const ticketSql = 'SELECT * FROM tickets WHERE ticket_id = ?';
+
+    db.query(ticketSql, [ticketId], (error, ticketResults) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving ticket');
+        }
+
+        if (ticketResults.length === 0) {
+            req.flash('error', 'Ticket not found.');
+            return res.redirect('/admin/tickets');
+        }
+
+        const ticket = ticketResults[0];
+        if (ticket.status !== 'pending') {
+            req.flash('error', 'This ticket was already handled.');
+            return res.redirect('/admin/tickets');
+        }
+
+        const stockSql = 'SELECT available_quantity FROM equipment WHERE equipment_id = ?';
+        db.query(stockSql, [ticket.equipment_id], (error, stockResults) => {
+            if (error) {
+                console.error('Database query error:', error.message);
+                return res.send('Error checking stock');
+            }
+
+            if (stockResults.length === 0) {
+                req.flash('error', 'Equipment no longer exists.');
+                return res.redirect('/admin/tickets');
+            }
+
+            if (stockResults[0].available_quantity <= 0) {
+                req.flash('error', 'This item is currently out of stock.');
+                return res.redirect('/admin/tickets');
+            }
+
+            const updateTicketSql = `UPDATE tickets SET status = 'approved', review_note = ? WHERE ticket_id = ?`;
+            db.query(updateTicketSql, ['Approved by admin', ticketId], (error) => {
+                if (error) {
+                    console.error('Error updating ticket:', error.message);
+                    return res.send('Error updating ticket');
+                }
+
+                const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
+                                 VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), 'borrowed')`;
+                db.query(loanSql, [ticket.user_id, ticket.equipment_id, ticket.duration_days], (error) => {
+                    if (error) {
+                        console.error('Error creating loan:', error.message);
+                        return res.send('Error creating loan');
+                    }
+
+                    const updateStockSql = `UPDATE equipment SET available_quantity = available_quantity - 1 WHERE equipment_id = ?`;
+                    db.query(updateStockSql, [ticket.equipment_id], (error) => {
+                        if (error) {
+                            console.error('Error updating stock:', error.message);
+                            return res.send('Error updating stock');
+                        }
+
+                        req.flash('success', 'Ticket approved and loan created.');
+                        res.redirect('/admin/tickets');
+                    });
+                });
+            });
+        });
+    });
+});
+
+app.post('/admin/tickets/:id/reject', checkAuthenticated, checkAdmin, (req, res) => {
+    const ticketId = req.params.id;
+    const note = req.body.reviewNote || 'No reason provided';
+
+    const sql = `UPDATE tickets SET status = 'rejected', review_note = ? WHERE ticket_id = ?`;
+    db.query(sql, [note, ticketId], (error) => {
+        if (error) {
+            console.error('Error updating ticket:', error.message);
+            return res.send('Error updating ticket');
+        }
+
+        req.flash('success', 'Ticket rejected.');
+        res.redirect('/admin/tickets');
+    });
+});
+
 // Admin views every loan in the system
 app.get('/admin/loans', checkAuthenticated, checkAdmin, (req, res) => {
     const sql = `SELECT loans.loan_id, users.username, equipment.name,
@@ -456,7 +616,44 @@ app.post('/admin/equipment/add', checkAuthenticated, checkAdmin, upload.single('
         });
 });
 
-// A student borrows an item - this CREATES a new record in the loans table
+// Student opens the form to request a borrow ticket
+app.get('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
+    const equipmentId = req.params.id;
+    const sql = 'SELECT * FROM equipment WHERE equipment_id = ?';
+
+    db.query(sql, [equipmentId], (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error retrieving equipment');
+        }
+
+        if (results.length === 0) {
+            return res.send('Equipment not found');
+        }
+
+        const equipment = results[0];
+        const overdueSql = `SELECT COUNT(*) AS overdueCount FROM loans
+                            WHERE user_id = ? AND status = 'borrowed' AND due_date < CURDATE()`;
+
+        db.query(overdueSql, [req.session.user.user_id], (error, overdueResults) => {
+            if (error) {
+                console.error('Database query error:', error.message);
+                return res.send('Error checking loans');
+            }
+
+            res.render('tickets/new-ticket', {
+                pageTitle: 'Request to Borrow',
+                user: req.session.user,
+                equipment: equipment,
+                hasOverdueLoan: overdueResults[0].overdueCount > 0,
+                error: req.flash('error')[0],
+                success: req.flash('success')[0]
+            });
+        });
+    });
+});
+
+// A student creates a borrow ticket to be approved by admin
 app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
     const equipmentId = req.params.id;
     const userId = req.session.user.user_id;
@@ -499,28 +696,23 @@ app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
                 return res.redirect('/equipment/' + equipmentId);
             }
 
-            // Step 3 - create the loan. Standard loan period is 7 days.
-            const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
-                             VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'borrowed')`;
+            const reason = (req.body.reason || '').trim() || 'No reason given';
+            const durationDays = Math.max(1, Math.min(30, Number(req.body.durationDays || 7)) || 7);
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + durationDays);
+            const dueDateString = dueDate.getFullYear() + '-' + String(dueDate.getMonth() + 1).padStart(2, '0') + '-' + String(dueDate.getDate()).padStart(2, '0');
 
-            db.query(loanSql, [userId, equipmentId], (error, results) => {
+            const ticketSql = `INSERT INTO tickets (user_id, equipment_id, request_date, due_date, duration_days, reason, status)
+                               VALUES (?, ?, CURDATE(), ?, ?, ?, 'pending')`;
+
+            db.query(ticketSql, [userId, equipmentId, dueDateString, durationDays, reason], (error, results) => {
                 if (error) {
-                    console.error('Error creating loan:', error.message);
-                    return res.send('Error borrowing equipment');
+                    console.error('Error creating ticket:', error.message);
+                    return res.send('Error creating ticket');
                 }
 
-                // Step 4 - reduce the stock so two students cannot take the same unit
-                const updateSql = `UPDATE equipment SET available_quantity = available_quantity - 1
-                                   WHERE equipment_id = ?`;
-
-                db.query(updateSql, [equipmentId], (error, results) => {
-                    if (error) {
-                        console.error('Error updating stock:', error.message);
-                        return res.send('Error updating stock');
-                    }
-                    req.flash('success', 'Item borrowed. Please return it within 7 days.');
-                    res.redirect('/myloans');
-                });
+                req.flash('success', 'Your borrow request has been sent to the admin.');
+                res.redirect('/tickets/my-tickets');
             });
         });
     });
