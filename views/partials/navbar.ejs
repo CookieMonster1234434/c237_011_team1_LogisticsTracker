@@ -13,9 +13,6 @@
                 <% if (typeof user !== 'undefined' && user) { %>
                     <% if (user.role === 'student') { %>
                         <li class="nav-item">
-                            <a class="nav-link" href="/tickets/my-tickets">My Tickets</a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link" href="/myloans">My Loans</a>
                         </li>
                     <% } %>
@@ -24,7 +21,6 @@
                             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Admin</a>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="/admin/equipment/add">Add Equipment</a></li>
-                                <li><a class="dropdown-item" href="/admin/tickets">Ticket Requests</a></li>
                                 <li><a class="dropdown-item" href="/admin/loans">All Loans</a></li>
                                 <li><a class="dropdown-item" href="/admin/users">Manage Users</a></li>
                             </ul>
