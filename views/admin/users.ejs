@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = 'Manage Users'
+      user      = current session user (role: admin)
+      users     = [{ user_id, username, email, role }, ...]
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <h2 class="mb-4">Manage Users</h2>
+        <%- include('../partials/alert') %>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle bg-white">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (typeof users !== 'undefined' && users.length > 0) { %>
+                        <% for (let i = 0; i < users.length; i++) { %>
+                            <% const u = users[i]; %>
+                            <tr>
+                                <td><%= u.user_id %></td>
+                                <td><%= u.username %></td>
+                                <td><%= u.email %></td>
+                                <td>
+                                    <span class="badge <%= u.role === 'admin' ? 'bg-dark' : 'bg-secondary' %>"><%= u.role %></span>
+                                </td>
+                                <td>
+                                    <%# HONG WEI: an admin cannot delete their own account, so hide the button on their own row %>
+                                    <% if (u.user_id === user.user_id) { %>
+                                        <span class="text-muted small">This is you</span>
+                                    <% } else { %>
+                                        <form action="/admin/users/<%= u.user_id %>/delete" method="POST" class="d-inline"
+                                              onsubmit="return confirm('Delete this user account? Their returned loan history will also be removed.');">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                        </form>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% } %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No users found.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

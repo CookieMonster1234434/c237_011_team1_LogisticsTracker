@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = 'Edit Equipment'
+      user      = current session user (role: admin)
+      equipment = { equipment_id, name, category, description, image, total_quantity, available_quantity, condition }
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <h2 class="mb-4">Edit Equipment</h2>
+        <%- include('../partials/alert') %>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <%# Expected action: POST /admin/equipment/:id/edit (multipart/form-data for image upload) %>
+                <form action="/admin/equipment/<%= equipment.equipment_id %>/edit" method="POST" enctype="multipart/form-data">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="<%= equipment.name %>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="category" class="form-label">Category</label>
+                            <input type="text" class="form-control" id="category" name="category" value="<%= equipment.category %>" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"><%= equipment.description %></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="total_quantity" class="form-label">Total Quantity</label>
+                            <input type="number" class="form-control" id="total_quantity" name="total_quantity" min="1" value="<%= equipment.total_quantity %>" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="condition" class="form-label">Condition</label>
+                            <select class="form-select" id="condition" name="condition" required>
+                                <% const conditions = ['New', 'Good', 'Fair', 'Worn']; %>
+                                <% for (let i = 0; i < conditions.length; i++) { %>
+                                    <% const opt = conditions[i]; %>
+                                    <option value="<%= opt %>" <%= equipment.condition === opt ? 'selected' : '' %>><%= opt %></option>
+                                <% } %>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="image" class="form-label">Replace Image</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                            <% if (equipment.image) { %>
+                                <img src="/uploads/<%= equipment.image %>" class="img-thumbnail mt-2" style="max-height:80px;" alt="current image">
+                            <% } %>
+                        </div>
+                    </div>
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <a href="/equipment/<%= equipment.equipment_id %>" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>

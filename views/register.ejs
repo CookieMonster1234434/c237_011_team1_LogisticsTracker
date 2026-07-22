@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<%# Expects locals: pageTitle = 'Register' passed in from the route render() call %>
+<head>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/navbar') %>
+    <div class="container">
+        <div class="card auth-card shadow-sm">
+            <div class="card-body p-4">
+                <h3 class="card-title mb-4 text-center">Create an Account</h3>
+                <%- include('partials/alert') %>
+                <%# Expected action: POST /register with fields { username, email, password } %>
+                <form action="/register" method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" minlength="6" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Register</button>
+                </form>
+                <p class="text-center mt-3 mb-0">
+                    Already have an account? <a href="/login">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    <%- include('partials/footer') %>
+</body>
+</html>

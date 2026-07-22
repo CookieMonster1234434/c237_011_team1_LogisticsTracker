@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<%#
+    Expects locals:
+      pageTitle = 'My Loans'
+      user      = current session user
+      loans     = [{ loan_id, equipment_id, name, borrow_date, due_date, return_date, status }, ...]
+                   status is one of 'borrowed' | 'returned' | 'overdue'
+%>
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <h2 class="mb-4">My Loans</h2>
+        <%- include('../partials/alert') %>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle bg-white">
+                <thead class="table-light">
+                    <tr>
+                        <th>Equipment</th>
+                        <th>Borrow Date</th>
+                        <th>Due Date</th>
+                        <th>Return Date</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (typeof loans !== 'undefined' && loans.length > 0) { %>
+                        <% for (let i = 0; i < loans.length; i++) { %>
+                            <% const loan = loans[i]; %>
+                            <tr class="<%= loan.status === 'overdue' ? 'table-row-overdue' : '' %>">
+                                <td><a href="/equipment/<%= loan.equipment_id %>"><%= loan.name %></a></td>
+                                <td><%= loan.borrow_date %></td>
+                                <td><%= loan.due_date %></td>
+                                <td><%= loan.return_date ? loan.return_date : '—' %></td>
+                                <td>
+                                    <span class="badge status-badge-<%= loan.status %>"><%= loan.status %></span>
+                                </td>
+                                <td>
+                                    <% if (loan.status === 'borrowed' || loan.status === 'overdue') { %>
+                                        <%# Expected action: POST /myloans/:id/return %>
+                                        <form action="/myloans/<%= loan.loan_id %>/return" method="POST">
+                                            <button type="submit" class="btn btn-sm btn-success">Return</button>
+                                        </form>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% } %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">You have no loans yet.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>
