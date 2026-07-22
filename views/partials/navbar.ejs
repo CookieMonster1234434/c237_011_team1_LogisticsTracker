@@ -32,7 +32,27 @@
                     <% } %>
                 <% } %>
             </ul>
-            <ul class="navbar-nav ms-auto">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+                <li class="nav-item my-2 my-lg-0">
+                    <form action="/equipment" method="GET" class="d-flex navbar-search" role="search">
+                        <input class="form-control form-control-sm me-2" type="search" name="search"
+                               placeholder="Search equipment" aria-label="Search equipment"
+                               value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+                        <button class="btn btn-outline-light btn-sm" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </form>
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+                <li class="nav-item my-2 my-lg-0">
+                    <form action="/equipment" method="GET" class="d-flex navbar-search" role="search">
+                        <input class="form-control form-control-sm me-2" type="search" name="search"
+                               placeholder="Search equipment" aria-label="Search equipment"
+                               value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+                        <button class="btn btn-outline-light btn-sm" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </form>
+                </li>
                 <% if (typeof user !== 'undefined' && user) { %>
                     <li class="nav-item d-flex align-items-center me-3 text-light">
                         <i class="bi bi-person-circle me-1"></i> <%= user.username %>
