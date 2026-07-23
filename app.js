@@ -537,7 +537,7 @@ app.get('/admin/equipment/:id/edit', checkAuthenticated, checkAdmin, (req, res) 
     db.query(sql, [equipmentId], (error, results) => {
         if (error) {
             console.error('Database query error:', error.message);
-            return res.send('Error retrieving equipment');
+            return res.send('Error retrieving equipment.');
         }
 
         if (results.length === 0) {
