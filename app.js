@@ -22,28 +22,6 @@ const app = express();
 
 
 // =====================================================================
-// JOEL - MySQL database connection
-// =====================================================================
-const db = mysql.createConnection({
-    host: 'c237-asyraf-mysql.mysql.database.azure.com',
-    user: 'c237_011',
-    password: 'c237011@2026!',                      // change to your own MySQL password
-    database: 'c237_011_team1_logisticstracker',
-    dateStrings: true,                              // return DATE columns as 'YYYY-MM-DD' text
-    ssl: { rejectUnauthorized: false }              // Azure MySQL only accepts encrypted (SSL) connections
-});
-
-db.connect((err) => {
-    if (err) {
-        console.error('Error connecting to MySQL:', err);
-        return;
-    }
-
-    console.log('Connected to MySQL database');
-});
-
-
-// =====================================================================
 // APP SET UP (whole team)
 // =====================================================================
 app.set('view engine', 'ejs');
@@ -85,36 +63,6 @@ const getToday = () => {
     return year + '-' + month + '-' + day;
 };
 
-// ENHANCEMENT: the database only stores 'borrowed' or 'returned'.
-// A loan is OVERDUE when it is still borrowed and the due date has passed.
-// We work this out in JavaScript so it is always correct on the day it is viewed.
-const markOverdue = (loans) => {
-    const today = getToday();
-    for (let i = 0; i < loans.length; i++) {
-        if (loans[i].status === 'borrowed' && loans[i].due_date < today) {
-            loans[i].status = 'overdue';
-        }
-    }
-    return loans;
-};
-
-const checkAuthenticated = (req, res, next) => {
-    if (req.session.user) {
-        return next();
-    }
-
-    req.flash('error', 'Please log in to view this resource');
-    res.redirect('/login');
-};
-
-const checkAdmin = (req, res, next) => {
-    if (req.session.user && req.session.user.role === 'admin') {
-        return next();
-    }
-
-    req.flash('error', 'Access denied. Admin only.');
-    res.redirect('/equipment');
-};
 
 
 
@@ -158,67 +106,48 @@ app.get('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
 
 // Borrow equipment
 app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
-    const equipmentId = req.params.id;
-    const userId = req.session.user.user_id;
+  const equipmentId = req.params.id;
+  const userId = req.session.user.user_id;
 
-    if (req.session.user.role !== 'student') {
-        req.flash('error', 'Only students can borrow equipment.');
-        return res.redirect('/equipment/' + equipmentId);
+  if (req.session.user.role !== 'student') {
+    req.flash('error', 'Only students can borrow equipment.');
+    return res.redirect(`/equipment/${equipmentId}`);
+  }
+
+  const overdueSql = `SELECT COUNT(*) AS overdueCount 
+                      FROM loans WHERE user_id = ? AND status = 'borrowed' AND due_date < CURDATE()`;
+
+  db.query(overdueSql, [userId], (err, overdue) => {
+    if (err) return res.send('Error checking loans');
+    if (overdue[0].overdueCount > 0) {
+      req.flash('error', 'You have an overdue item. Please return it before borrowing again.');
+      return res.redirect('/myloans');
     }
 
-    const overdueSql = `SELECT COUNT(*) AS overdueCount FROM loans
-                        WHERE user_id = ? AND status = 'borrowed' AND due_date < CURDATE()`;
+    db.query('SELECT available_quantity FROM equipment WHERE equipment_id = ?', [equipmentId], (err, stock) => {
+      if (err) return res.send('Error checking stock');
+      if (!stock.length) return res.send('Equipment not found');
+      if (stock[0].available_quantity <= 0) {
+        req.flash('error', 'This item is currently unavailable.');
+        return res.redirect(`/equipment/${equipmentId}`);
+      }
 
-    db.query(overdueSql, [userId], (error, overdueResults) => {
-        if (error) {
-            console.error('Database query error:', error.message);
-            return res.send('Error checking loans');
-        }
+      const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
+                       VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'borrowed')`;
 
-        if (overdueResults[0].overdueCount > 0) {
-            req.flash('error', 'You have an overdue item. Please return it before borrowing again.');
-            return res.redirect('/myloans');
-        }
+      db.query(loanSql, [userId, equipmentId], (err) => {
+        if (err) return res.send('Error creating loan');
 
-        const stockSql = 'SELECT available_quantity FROM equipment WHERE equipment_id = ?';
-        db.query(stockSql, [equipmentId], (error, stockResults) => {
-            if (error) {
-                console.error('Database query error:', error.message);
-                return res.send('Error checking stock');
-            }
-
-            if (stockResults.length === 0) {
-                return res.send('Equipment not found');
-            }
-
-            if (stockResults[0].available_quantity <= 0) {
-                req.flash('error', 'This item is currently unavailable.');
-                return res.redirect('/equipment/' + equipmentId);
-            }
-
-            const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
-                             VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'borrowed')`;
-
-            db.query(loanSql, [userId, equipmentId], (error) => {
-                if (error) {
-                    console.error('Error creating loan:', error.message);
-                    return res.send('Error creating loan');
-                }
-
-                const updateStockSql = `UPDATE equipment SET available_quantity = available_quantity - 1 WHERE equipment_id = ?`;
-                db.query(updateStockSql, [equipmentId], (error) => {
-                    if (error) {
-                        console.error('Error updating stock:', error.message);
-                        return res.send('Error updating stock');
-                    }
-
-                    req.flash('success', 'Equipment borrowed successfully.');
-                    res.redirect('/myloans');
-                });
-            });
+        db.query('UPDATE equipment SET available_quantity = available_quantity - 1 WHERE equipment_id = ?', [equipmentId], (err) => {
+          if (err) return res.send('Error updating stock');
+          req.flash('success', 'Equipment borrowed successfully.');
+          res.redirect('/myloans');
         });
+      });
     });
+  });
 });
+
 
 // Request a new equipment item
 app.get('/equipment/requests/new', checkAuthenticated, (req, res) => {
