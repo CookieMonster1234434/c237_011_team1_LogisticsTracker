@@ -200,19 +200,8 @@ app.post('/equipment/requests/new', checkAuthenticated, (req, res) => {
 });
 
 app.get('/admin/equipment/requests', checkAuthenticated, checkAdmin, (req, res) => {
-    const sql = `SELECT er.*, u.name AS user_name
-                 FROM equipment_requests er
-                 JOIN users u ON u.user_id = er.user_id
-                 ORDER BY er.request_date DESC, er.request_id DESC`;
-
-    db.query(sql, (error, results) => {
-        if (error) {
-            console.error('Error fetching equipment requests:', error.message);
-            return res.send('Error fetching equipment requests');
-        }
-        res.render('admin/equipment-requests', {
-            pageTitle: 'Equipment Requests',
-            requests: results
-        });
+    db.query('SELECT * FROM equipment_requests ORDER BY request_date DESC', (error, results) => {
+        if (error) return res.send('Error fetching equipment requests');
+        res.render('admin/equipment-requests', { requests: results });
     });
 });
