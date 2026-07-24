@@ -101,8 +101,23 @@ app.post('/admin/equipment/add', checkAuthenticated, checkAdmin, upload.single('
 });
 
 app.get('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
-    res.redirect('/equipment/' + req.params.id);
+  const equipmentId = req.params.id;
+  // fetch equipment details from DB if needed
+  db.query('SELECT * FROM equipment WHERE equipment_id = ?', [equipmentId], (err, results) => {
+    if (err) return res.send('Error loading equipment');
+    if (!results.length) return res.send('Equipment not found');
+    res.render('borrow', {
+      pageTitle: 'Borrow Equipment',
+      equipment: results[0],
+      user: req.session.user,
+      messages: {
+        error: req.flash('error'),
+        success: req.flash('success')
+      }
+    });
+  });
 });
+
 
 // Borrow equipment
 app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
@@ -132,8 +147,10 @@ app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
         return res.redirect(`/equipment/${equipmentId}`);
       }
 
-      const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
-                       VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY), 'borrowed')`;
+const duration = parseInt(req.body.duration, 10) || 7;
+const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
+                 VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), 'borrowed')`;
+
 
       db.query(loanSql, [userId, equipmentId], (err) => {
         if (err) return res.send('Error creating loan');
