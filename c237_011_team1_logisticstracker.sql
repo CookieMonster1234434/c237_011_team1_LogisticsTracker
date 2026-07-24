@@ -10,20 +10,6 @@
 CREATE DATABASE IF NOT EXISTS c237_011_team1_logisticstracker;
 USE c237_011_team1_logisticstracker;
 
-
--- ---------------------------------------------------------------------
--- TABLE: users
--- role is either 'student' or 'admin'
--- ---------------------------------------------------------------------
-CREATE TABLE users (
-    user_id  INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50)  NOT NULL,
-    email    VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role     VARCHAR(10)  NOT NULL DEFAULT 'student'
-);
-
-
 -- ---------------------------------------------------------------------
 -- TABLE: equipment
 -- `condition` is a reserved word in MySQL, so it is written in backticks
@@ -57,38 +43,6 @@ CREATE TABLE loans (
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
 );
-
--- ---------------------------------------------------------------------
--- TABLE: tickets
--- Simple borrow approval workflow: pending -> approved/rejected
--- ---------------------------------------------------------------------
-CREATE TABLE tickets (
-    ticket_id      INT AUTO_INCREMENT PRIMARY KEY,
-    user_id        INT NOT NULL,
-    equipment_id   INT NOT NULL,
-    request_date   DATE NOT NULL,
-    due_date       DATE NOT NULL,
-    duration_days  INT NOT NULL DEFAULT 7,
-    reason         VARCHAR(255) DEFAULT NULL,
-    status         VARCHAR(20) NOT NULL DEFAULT 'pending',
-    review_note    VARCHAR(255) DEFAULT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(user_id),
-    FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
-);
-
-
--- ---------------------------------------------------------------------
--- SAMPLE USERS
--- Passwords are hashed with SHA1() exactly the way app.js does it.
---   admin@myrp.edu.sg  / admin123     (admin)
---   alice@myrp.edu.sg  / student123   (student)
---   hongwei@myrp.edu.sg / student123  (student)
--- ---------------------------------------------------------------------
-INSERT INTO users (username, email, password, role) VALUES
-('admin_joel', 'admin@myrp.edu.sg',   SHA1('admin123'),   'admin'),
-('alice_tan',  'alice@myrp.edu.sg',   SHA1('student123'), 'student'),
-('hong_wei',   'hongwei@myrp.edu.sg', SHA1('student123'), 'student');
-
 
 -- ---------------------------------------------------------------------
 -- SAMPLE EQUIPMENT

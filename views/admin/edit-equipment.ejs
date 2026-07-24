@@ -45,6 +45,8 @@
                                 <% } %>
                             </select>
                         </div>
+
+                        <%# Maximus: Update edit-equipment.ejs to include file upload input type %>
                         <div class="col-md-4">
                             <label for="image" class="form-label">Replace Image</label>
                             <input type="file" class="form-control" id="image" name="image" accept="image/*">
@@ -52,6 +54,7 @@
                                 <img src="/uploads/<%= equipment.image %>" class="img-thumbnail mt-2" style="max-height:80px;" alt="current image">
                             <% } %>
                         </div>
+
                     </div>
                     <div class="mt-4 d-flex gap-2">
                         <button type="submit" class="btn btn-primary">Save Changes</button>
