@@ -1,188 +1,207 @@
+// =====================================================================
+// C237 CA2 - Logistics Tracker (c237_011 Team 1)
+// =====================================================================
+// app.js is shared by the whole team.
+// Each member owns the section marked with their name below.
+//
+//   Joshua   - Registration, Login, Logout, Access Control
+//   Jerald   - Creating / Adding information
+//   Max      - Viewing / Displaying information
+//   Shakir   - Updating / Editing information
+//   Hong Wei - Removing information
+//   Joel     - Search & Filter, MySQL connection
+// =====================================================================
+
 const express = require('express');
 const mysql = require('mysql2');
-const app = express();
+const session = require('express-session');
+const flash = require('connect-flash');
 const multer = require('multer');
+
+const app = express();
+
+
+// =====================================================================
+// APP SET UP (whole team)
+// =====================================================================
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
-app.use(express.urlencoded({
-    extended: true
+app.use(express.urlencoded({ extended: true }));
+
+app.use(session({
+    secret: 'c237logisticssecret',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }     // session lasts 1 week
 }));
-const PORT = process.env.PORT || 3000;
 
-// ---------------------------------------------------------------------
-// TEMPORARY PREVIEW ROUTES
-// These render the views with hardcoded mock data so the frontend can be
-// clicked through before real auth/DB routes are built. Replace with the
-// actual routes per the route map (auth, equipment CRUD, loans, admin).
-// ---------------------------------------------------------------------
+app.use(flash());
 
-const mockStudent = { user_id: 1, username: 'alice_tan', email: 'alice@myrp.edu.sg', role: 'student' };
-const mockAdmin = { user_id: 2, username: 'admin_joel', email: 'joel@myrp.edu.sg', role: 'admin' };
-
-const mockEquipmentList = [
-    { equipment_id: 1, name: 'Canon EOS 200D', category: 'Camera', description: 'DSLR camera kit with 18-55mm lens.', image: null, total_quantity: 4, available_quantity: 2, condition: 'Good' },
-    { equipment_id: 2, name: 'Dell Latitude 5420', category: 'Laptop', description: 'Business laptop, i5, 16GB RAM.', image: null, total_quantity: 10, available_quantity: 0, condition: 'Good' },
-    { equipment_id: 3, name: 'Tripod Stand', category: 'Accessory', description: 'Adjustable aluminium tripod.', image: null, total_quantity: 6, available_quantity: 6, condition: 'New' },
-    { equipment_id: 4, name: 'Rode Wireless Mic', category: 'Audio', description: 'Lavalier wireless microphone set.', image: null, total_quantity: 3, available_quantity: 1, condition: 'Fair' }
-];
-
-const mockLoans = [
-    { loan_id: 1, user_id: 1, equipment_id: 1, name: 'Canon EOS 200D', borrow_date: '2026-07-01', due_date: '2026-07-08', return_date: null, status: 'overdue' },
-    { loan_id: 2, user_id: 1, equipment_id: 3, name: 'Tripod Stand', borrow_date: '2026-07-10', due_date: '2026-07-17', return_date: null, status: 'borrowed' },
-    { loan_id: 3, user_id: 1, equipment_id: 4, name: 'Rode Wireless Mic', borrow_date: '2026-06-20', due_date: '2026-06-27', return_date: '2026-06-25', status: 'returned' }
-];
-
-function getStudentLoans() {
-    return mockLoans.filter(loan => loan.user_id === mockStudent.user_id);
-}
-
-function getAllLoans() {
-    return mockLoans.map(l => ({ ...l, username: mockStudent.username }));
-}
-
-function getEquipment(id) {
-    const equipmentId = Number(id);
-    return mockEquipmentList.find(e => e.equipment_id === equipmentId) || null;
-}
-
-function formatDate(date) {
-    return date.toISOString().slice(0, 10);
-}
-
-app.get('/', (req, res) => res.redirect('/equipment'));
-
-app.get('/login', (req, res) => {
-    res.render('login', { pageTitle: 'Login' });
+// multer saves uploaded photos into public/uploads,
+// so the views can show them with <img src="/uploads/filename">
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'public/uploads');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
 });
+const upload = multer({ storage: storage });
 
-app.get('/register', (req, res) => {
-    res.render('register', { pageTitle: 'Register' });
-});
 
-app.get('/equipment', (req, res) => {
-    const { search = '', category = '' } = req.query;
-    let list = mockEquipmentList;
-    if (search) list = list.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
-    if (category) list = list.filter(e => e.category === category);
-    res.render('equipment/list', {
-        pageTitle: 'Equipment',
-        user: mockStudent,
-        equipmentList: list,
-        categories: [...new Set(mockEquipmentList.map(e => e.category))],
-        searchQuery: search,
-        category
+// =====================================================================
+// SHARED HELPER FUNCTIONS (whole team)
+// =====================================================================
+
+// Returns today's date as 'YYYY-MM-DD' so it can be compared with due_date
+const getToday = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+};
+
+
+
+
+// =====================================================================
+// JERALD - Creating / Adding information
+// =====================================================================
+
+// Show the Add Equipment form (admin only)
+app.get('/admin/equipment/add', checkAuthenticated, checkAdmin, (req, res) => {
+    res.render('admin/add-equipment', {
+        pageTitle: 'Add Equipment',
+        user: req.session.user,
+        error: req.flash('error')[0],
+        success: req.flash('success')[0]
     });
 });
 
-app.get('/equipment/:id', (req, res) => {
-    const equipment = getEquipment(req.params.id);
-    if (!equipment) {
-        return res.redirect('/equipment');
+// Add a new equipment item
+app.post('/admin/equipment/add', checkAuthenticated, checkAdmin, upload.single('image'), (req, res) => {
+    const { name, category, description, total_quantity, condition } = req.body;
+    const image = req.file ? req.file.filename : null;
+
+    const sql = `INSERT INTO equipment
+                 (name, category, description, image, total_quantity, available_quantity, \`condition\`)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+    db.query(sql, [name, category, description, image, total_quantity, total_quantity, condition], (error) => {
+        if (error) {
+            console.error('Error adding equipment:', error.message);
+            return res.send('Error adding equipment');
+        }
+
+        req.flash('success', name + ' has been added to the inventory.');
+        res.redirect('/equipment');
+    });
+});
+
+app.get('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
+  const equipmentId = req.params.id;
+  // fetch equipment details from DB if needed
+  db.query('SELECT * FROM equipment WHERE equipment_id = ?', [equipmentId], (err, results) => {
+    if (err) return res.send('Error loading equipment');
+    if (!results.length) return res.send('Equipment not found');
+    res.render('borrow', {
+      pageTitle: 'Borrow Equipment',
+      equipment: results[0],
+      user: req.session.user,
+      messages: {
+        error: req.flash('error'),
+        success: req.flash('success')
+      }
+    });
+  });
+});
+
+
+// Borrow equipment
+app.post('/equipment/:id/borrow', checkAuthenticated, (req, res) => {
+  const equipmentId = req.params.id;
+  const userId = req.session.user.user_id;
+
+  if (req.session.user.role !== 'student') {
+    req.flash('error', 'Only students can borrow equipment.');
+    return res.redirect(`/equipment/${equipmentId}`);
+  }
+
+  const overdueSql = `SELECT COUNT(*) AS overdueCount 
+                      FROM loans WHERE user_id = ? AND status = 'borrowed' AND due_date < CURDATE()`;
+
+  db.query(overdueSql, [userId], (err, overdue) => {
+    if (err) return res.send('Error checking loans');
+    if (overdue[0].overdueCount > 0) {
+      req.flash('error', 'You have an overdue item. Please return it before borrowing again.');
+      return res.redirect('/myloans');
     }
 
-    res.render('equipment/detail', {
-        pageTitle: equipment.name,
-        user: mockStudent,
-        equipment,
-        hasOverdueLoan: getStudentLoans().some(l => l.status === 'overdue')
+    db.query('SELECT available_quantity FROM equipment WHERE equipment_id = ?', [equipmentId], (err, stock) => {
+      if (err) return res.send('Error checking stock');
+      if (!stock.length) return res.send('Equipment not found');
+      if (stock[0].available_quantity <= 0) {
+        req.flash('error', 'This item is currently unavailable.');
+        return res.redirect(`/equipment/${equipmentId}`);
+      }
+
+const duration = parseInt(req.body.duration, 10) || 7;
+const loanSql = `INSERT INTO loans (user_id, equipment_id, borrow_date, due_date, status)
+                 VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), 'borrowed')`;
+
+
+      db.query(loanSql, [userId, equipmentId], (err) => {
+        if (err) return res.send('Error creating loan');
+
+        db.query('UPDATE equipment SET available_quantity = available_quantity - 1 WHERE equipment_id = ?', [equipmentId], (err) => {
+          if (err) return res.send('Error updating stock');
+          req.flash('success', 'Equipment borrowed successfully.');
+          res.redirect('/myloans');
+        });
+      });
+    });
+  });
+});
+
+
+// Request a new equipment item
+app.get('/equipment/requests/new', checkAuthenticated, (req, res) => {
+    res.render('tickets/new-equipment-request', {
+        pageTitle: 'Request Equipment',
+        user: req.session.user,
+        error: req.flash('error')[0],
+        success: req.flash('success')[0]
     });
 });
 
-app.get('/equipment/:id/borrow', (req, res) => {
-    const equipment = getEquipment(req.params.id);
-    if (!equipment) {
-        return res.redirect('/equipment');
+app.post('/equipment/requests/new', checkAuthenticated, (req, res) => {
+    const { name, category, description, quantity } = req.body;
+
+    if (!name || !category || !description || !quantity) {
+        req.flash('error', 'All fields are required.');
+        return res.redirect('/equipment/requests/new');
     }
 
-    res.render('user/borrow', {
-        pageTitle: 'Borrow Equipment',
-        user: mockStudent,equipment,
-        hasOverdueLoan: getStudentLoans().some(l => l.status === 'overdue'),
-        error: req.query.error,
-        success: req.query.success
+    const sql = `INSERT INTO equipment_requests
+                 (user_id, name, category, description, quantity, request_date, status)
+                 VALUES (?, ?, ?, ?, ?, CURDATE(), 'pending')`;
+
+    db.query(sql, [req.session.user.user_id, name, category, description, quantity], (error) => {
+        if (error) {
+            console.error('Error creating equipment request:', error.message);
+            return res.send('Error creating equipment request');
+        }
+
+        req.flash('success', 'Your equipment request has been submitted.');
+        res.redirect('/equipment/requests/new');
     });
 });
 
-app.post('/equipment/:id/borrow', (req, res) => {
-    const equipment = getEquipment(req.params.id);
-    if (!equipment) return res.redirect('/equipment');
-
- // 1. Check for overdue items first
-if (getStudentLoans().some(l => l.status === 'overdue')) {
-    return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=overdue`);
-} 
-
-// 2. Check stock levels second
-else if (equipment.available_quantity <= 0) {
-    return res.redirect(`/equipment/${equipment.equipment_id}/borrow?error=unavailable`);
-}
-    // 2. Compact Duration & Date Math
-    const parsed = Number(req.body.durationDays);
-    const days = (req.body.durationDays && Number.isFinite(parsed)) ? Math.min(30, Math.max(1, parsed)) : 7;
-    const dueDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-
-    // 3. Update State & Redirect
-    mockLoans.push({
-        loan_id: mockLoans.length + 1,
-        user_id: mockStudent.user_id,
-        equipment_id: equipment.equipment_id,
-        name: equipment.name,
-        borrow_date: formatDate(new Date()),
-        due_date: formatDate(dueDate),
-        return_date: null,
-        status: 'borrowed'
+app.get('/admin/equipment/requests', checkAuthenticated, checkAdmin, (req, res) => {
+    db.query('SELECT * FROM equipment_requests ORDER BY request_date DESC', (error, results) => {
+        if (error) return res.send('Error fetching equipment requests');
+        res.render('admin/equipment-requests', { requests: results });
     });
-
-    equipment.available_quantity--;
-    return res.redirect('/myloans?success=Equipment%20borrowed%20successfully.');
-});
-
-app.post('/myloans/:id/return', (req, res) => {
-    const loan = mockLoans.find(item => item.loan_id === Number(req.params.id));
-    if (!loan) {
-        return res.redirect('/myloans?error=Loan%20not%20found.');
-    }
-
-    loan.return_date = formatDate(new Date());
-    loan.status = 'returned';
-
-    const equipment = getEquipment(loan.equipment_id);
-    if (equipment) {
-        equipment.available_quantity = Math.min(equipment.total_quantity, equipment.available_quantity + 1);
-    }
-
-    return res.redirect('/myloans?success=Equipment%20returned%20successfully.');
-});
-
-app.get('/myloans', (req, res) => {
-    res.render('loans/my-loans', {
-        pageTitle: 'My Loans',
-        user: mockStudent,
-        loans: getStudentLoans(),
-        error: req.query.error,
-        success: req.query.success
-    });
-});
-
-app.get('/admin/equipment/add', (req, res) => {
-    res.render('admin/add-equipment', { pageTitle: 'Add Equipment', user: mockAdmin });
-});
-
-app.get('/admin/equipment/:id/edit', (req, res) => {
-    const equipment = mockEquipmentList.find(e => e.equipment_id === Number(req.params.id)) || mockEquipmentList[0];
-    res.render('admin/edit-equipment', { pageTitle: 'Edit Equipment', user: mockAdmin, equipment });
-});
-
-app.get('/admin/loans', (req, res) => {
-    const allLoans = getAllLoans();
-    res.render('admin/loans', {
-        pageTitle: 'All Loans',
-        user: mockAdmin,
-        loans: allLoans,
-        overdueCount: allLoans.filter(l => l.status === 'overdue').length
-    });
-});
-
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
 });
