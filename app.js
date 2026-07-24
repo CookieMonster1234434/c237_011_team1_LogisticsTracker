@@ -6,7 +6,7 @@
 //
 //   Joshua   - Registration, Login, Logout, Access Control
 //   Jerald   - Creating / Adding information
-//   Maximus  - Viewing / Displaying information and image upload
+//   Maximus  - Viewing / Displaying Information and Image Upload
 //   Shakir   - Updating / Editing information
 //   Hong Wei - Removing information
 //   Joel     - Search & Filter, MySQL connection
@@ -76,7 +76,7 @@ const markOverdue = (loans) => {
 };
 
 // =====================================================================
-// Maximus - Viewing / Displaying information
+// Maximus - Viewing / Displaying Information
 // =====================================================================
 
 app.get('/', (req, res) => {
