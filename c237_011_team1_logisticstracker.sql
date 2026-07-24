@@ -76,6 +76,19 @@ CREATE TABLE tickets (
     FOREIGN KEY (equipment_id) REFERENCES equipment(equipment_id)
 );
 
+CREATE TABLE equipment_requests (
+    request_id      INT AUTO_INCREMENT PRIMARY KEY,
+    user_id         INT NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    category        VARCHAR(50) NOT NULL,
+    description     TEXT NOT NULL,
+    quantity        INT NOT NULL DEFAULT 1,
+    request_date    DATE NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+    review_note     VARCHAR(255) DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
 
 -- ---------------------------------------------------------------------
 -- SAMPLE USERS

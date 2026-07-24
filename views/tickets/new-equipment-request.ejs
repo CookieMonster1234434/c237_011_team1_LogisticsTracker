@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('../partials/head') %>
+</head>
+<body>
+    <%- include('../partials/navbar') %>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="mb-3">Request New Equipment</h2>
+                        <p class="text-muted">Use this form to suggest equipment that should be added to the inventory.</p>
+                        <%- include('../partials/alert') %>
+
+                        <form action="/equipment/requests/new" method="POST">
+                            <div class="mb-3">
+                                <label class="form-label">Equipment name</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <input type="text" name="category" class="form-control" placeholder="Sports, Media Club, etc." required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea name="description" class="form-control" rows="4" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">How many units do you want?</label>
+                                <input type="number" name="quantity" class="form-control" min="1" value="1" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Submit Request</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <%- include('../partials/footer') %>
+</body>
+</html>
