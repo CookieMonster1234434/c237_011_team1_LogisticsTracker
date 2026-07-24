@@ -22,9 +22,14 @@
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="/admin/equipment/add">Add Equipment</a></li>
                                 <li><a class="dropdown-item" href="/admin/loans">All Loans</a></li>
+                                <li><a class="dropdown-item" href="/admin/equipment/requests">New Equipment Requests</a></li>
                             </ul>
                         </li>
                     <% } %>
+                    <% if (typeof user !== 'undefined' && user && user.role === 'student') { %>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/equipment/requests/new">Request New Equipment</a></li>
+<% } %>
                 <% } %>
             </ul>
             <ul class="navbar-nav ms-auto">

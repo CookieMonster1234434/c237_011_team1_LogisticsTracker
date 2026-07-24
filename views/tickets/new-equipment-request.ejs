@@ -1,43 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <%- include('../partials/head') %>
+  <%- include('../partials/head') %>
 </head>
 <body>
-    <%- include('../partials/navbar') %>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h2 class="mb-3">Request New Equipment</h2>
-                        <p class="text-muted">Use this form to suggest equipment that should be added to the inventory.</p>
-                        <%- include('../partials/alert') %>
+  <%- include('../partials/navbar') %>
+  <div class="container mt-4 mb-5">
+    <h2 class="mb-4">Request New Equipment</h2>
 
-                        <form action="/equipment/requests/new" method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Equipment name</label>
-                                <input type="text" name="name" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Category</label>
-                                <input type="text" name="category" class="form-control" placeholder="Sports, Media Club, etc." required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Description</label>
-                                <textarea name="description" class="form-control" rows="4" required></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">How many units do you want?</label>
-                                <input type="number" name="quantity" class="form-control" min="1" value="1" required>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Submit Request</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <%- include('../partials/footer') %>
+    <%- include('../partials/alert', { error: error, success: success }) %>
+
+    <form action="/equipment/requests/new" method="POST">
+      <div class="mb-3">
+        <label for="name" class="form-label">Item Name</label>
+        <input type="text" id="name" name="name" class="form-control" required>
+      </div>
+
+      <div class="mb-3">
+        <label for="category" class="form-label">Category</label>
+        <input type="text" id="category" name="category" class="form-control" required>
+      </div>
+
+      <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <textarea id="description" name="description" class="form-control" rows="3" required></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label for="quantity" class="form-label">Quantity</label>
+        <input type="number" id="quantity" name="quantity" class="form-control" min="1" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Submit Request</button>
+    </form>
+  </div>
+  <%- include('../partials/footer') %>
 </body>
 </html>
