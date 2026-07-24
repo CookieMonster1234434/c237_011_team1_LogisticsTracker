@@ -27,10 +27,10 @@ const app = express();
 const db = mysql.createConnection({
     host: 'c237-asyraf-mysql.mysql.database.azure.com',
     user: 'c237_011',
-    password: 'c237011@2026!',                      // change to your own MySQL password
+    password: 'c237011@2026!',                   // change to your own MySQL password
     database: 'c237_011_team1_logisticstracker',
-    dateStrings: true,                              // return DATE columns as 'YYYY-MM-DD' text
-    ssl: { rejectUnauthorized: false }              // Azure MySQL only accepts encrypted (SSL) connections
+    dateStrings: true,                           // return DATE columns as 'YYYY-MM-DD' text
+    ssl: { rejectUnauthorized: false }           // Azure MySQL only accepts encrypted (SSL) connections
 });
 
 db.connect((err) => {
@@ -103,6 +103,9 @@ const markOverdue = (loans) => {
 // JOSHUA - Access Control (middleware)
 // =====================================================================
 
+// ADMIN SECRET KEY (Can be set in .env or defaults to 'c237adminsecret')
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'c237adminsecret';
+
 // Stops anyone who is not logged in
 const checkAuthenticated = (req, res, next) => {
     if (req.session.user) {
@@ -123,11 +126,28 @@ const checkAdmin = (req, res, next) => {
     }
 };
 
-// Server-side validation for the registration form
+// Server-side validation for the regular registration form
 const validateRegistration = (req, res, next) => {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
+        req.flash('error', 'All fields are required.');
+        return res.redirect('/register');
+    }
+
+    if (password.length < 6) {
+        req.flash('error', 'Password should be at least 6 or more characters long');
+        return res.redirect('/register');
+    }
+
+    next();
+};
+
+// Server-side validation for the admin registration form
+const validateAdminRegistration = (req, res, next) => {
+    const { username, email, password, adminKey } = req.body;
+
+    if (!username || !email || !password || !adminKey) {
         req.flash('error', 'All fields are required.');
         return res.redirect('/register');
     }
@@ -145,6 +165,7 @@ const validateRegistration = (req, res, next) => {
 // JOSHUA - Registration, Login and Logout routes
 // =====================================================================
 
+// --- Regular User Registration Routes ---
 app.get('/register', (req, res) => {
     res.render('register', {
         pageTitle: 'Register',
@@ -171,10 +192,9 @@ app.post('/register', validateRegistration, (req, res) => {
         }
 
         // SHA1() hashes the password so the real password is never stored.
-        // New accounts are always 'student' - admin accounts are created by
-        // the logistics teacher directly in the database.
+        // New accounts created here are always 'user'
         const sql = `INSERT INTO users (username, email, password, role)
-                     VALUES (?, ?, SHA1(?), 'student')`;
+                     VALUES (?, ?, SHA1(?), 'user')`;
 
         db.query(sql, [username, email, password], (error, results) => {
             if (error) {
@@ -187,6 +207,45 @@ app.post('/register', validateRegistration, (req, res) => {
     });
 });
 
+// --- Admin Registration Routes ---
+app.post('/admin/register', validateAdminRegistration, (req, res) => {
+    const { username, email, password, adminKey } = req.body;
+
+    // Check if the provided secret key matches
+    if (adminKey !== ADMIN_SECRET) {
+        req.flash('error', 'Invalid Admin Secret Key.');
+        return res.redirect('/register');
+    }
+
+    // Check if the email is already registered
+    const checkSql = 'SELECT * FROM users WHERE email = ?';
+    db.query(checkSql, [email], (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.send('Error registering admin user');
+        }
+
+        if (results.length > 0) {
+            req.flash('error', 'This email is already registered.');
+            return res.redirect('/register');
+        }
+
+        // Insert new user with role = 'admin'
+        const sql = `INSERT INTO users (username, email, password, role)
+                     VALUES (?, ?, SHA1(?), 'admin')`;
+
+        db.query(sql, [username, email, password], (error, results) => {
+            if (error) {
+                console.error('Error registering admin user:', error.message);
+                return res.send('Error registering admin user');
+            }
+            req.flash('success', 'Admin registration successful! Please log in.');
+            res.redirect('/login');
+        });
+    });
+});
+
+// --- Login & Logout Routes ---
 app.get('/login', (req, res) => {
     res.render('login', {
         pageTitle: 'Login',
@@ -234,7 +293,6 @@ app.post('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/login');
 });
-
 
 
 // =====================================================================
